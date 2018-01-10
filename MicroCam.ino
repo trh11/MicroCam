@@ -9,6 +9,9 @@ int ZDir = 11;                                                                  
 int XEn = 4;                                                                        //
 int YEn = 8;
 int ZEn = 12;
+
+int Cam = 14;
+int mystery = 15;
                                                                                     //
 #define raster_time 1                                                               //
                                                                                     //
@@ -82,15 +85,19 @@ void disable() {
                                                                                     //
 void photo() {                                                                      //
   delay(500);                                                                       //
-  digitalWrite(14,HIGH);                                                            //
+  digitalWrite(mystery,LOW);
+  delay(10);
+  digitalWrite(Cam,LOW);                                                            //
   delay(50);                                                                       //
-  digitalWrite(14,LOW);                                                             //
-  delay(500);                                                                      //
+  digitalWrite(Cam,HIGH);
+  delay(10);
+  digitalWrite(mystery,HIGH);//
+  delay(2000);                                                                      //
 }                                                                                   //
                                                                                     //
 void z_peck(int span, int part) {                                                   //
     digitalWrite(ZDir,LOW);                                                         //
-    for (int l = 0; l < span/part + 1; l++) {                                       //
+    for (int l = 0; l < span/part; l++) {                                       //
       photo();                                                                      //
       for (int k = 0; k < part; k++) {                                              //
         if (pause() == 'S') {                                                       //
@@ -118,8 +125,10 @@ void z_peck(int span, int part) {                                               
 }                                                                                   //
                                                                                     //
 void report(char fin) {                                                             //
-  Serial.print(String(track[0])+","+String(track[1])+","+String(track[2])+","+fin); //
-}                                                                                   //
+  for (int n = 0; n < 5; n++){ 
+    Serial.println(String(track[0])+","+String(track[1])+","+String(track[2])+","+fin); //   
+  }     
+}
                                                                                     //
 char pause() {                                                                    //
   char check = Serial.read();
@@ -155,7 +164,10 @@ void setup() {                                                                  
   pinMode(XEn,OUTPUT);                                                              //
   pinMode(YEn,OUTPUT);                                                              //
   pinMode(ZEn,OUTPUT);                                                              //
-  pinMode(14,OUTPUT);                                                               //
+  pinMode(Cam,OUTPUT);
+  pinMode(mystery,OUTPUT);
+  digitalWrite(Cam,HIGH);//
+  digitalWrite(mystery,HIGH);
   Serial.begin(9600);                                                               //
   Serial.setTimeout(120);                                                           //
 }                                                                                   //
@@ -351,6 +363,7 @@ void loop() {                                                                   
 //************************************CAMERA*************************************** //
     if (header=="C") {                                                              //
       photo();                                                                      //
+      Serial.println("CAMERA!");
     }                                                                               //
   }                                                                                 //
 }                                                                                   //
