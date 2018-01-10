@@ -1,6 +1,6 @@
 from Tkinter import *                                                                       #
 from PIL import Image, ImageTk                                                              #
-import ttk, serial, os                                                                      #
+import ttk, serial, os, time                                                                      #
 import serial.tools.list_ports                                                              #
 
 ##------------------------------------------DEFS-------------------------------------------##
@@ -12,11 +12,11 @@ def Port_Authority():                                                           
 
 def go_send():                                                                              #
     xsteps = float(x.get())*5120
-    xout = 'x:'+str(xsteps)                                                                     #
+    xout = 'x:'+str(xsteps)                                                                 #
     ysteps = float(y.get())*5100    
-    yout = 'y:'+str(ysteps)                                                                     #
+    yout = 'y:'+str(ysteps)                                                                 #
     zsteps = float(z.get())*208000    
-    zout = 'z:'+str(zsteps)                                                                     #
+    zout = 'z:'+str(zsteps)                                                                 #
     speed = '@'+FREQ.get()                                                                  #
     print 'G,'+xout+','+yout+','+zout+','+speed                                             #
     ser.write('G,'+xout+','+yout+','+zout+','+speed)                                        #
@@ -26,7 +26,7 @@ def initialize():                                                               
     global ser                                                                              #
     com = Port_Authority()                                                                  #
     try:                                                                                    #
-        ser = serial.Serial(com,9600,timeout=.12)                                            #
+        ser = serial.Serial(com,9600,timeout=.12)                                           #
     except serial.serialutil.SerialException:                                               #
         print 'error'                                                                       #
 
@@ -40,23 +40,40 @@ def check_serial():                                                             
     master.after(1000, check_serial)                                                        #
     
 def read_serial():                                                                          #
-    data = ser.readline()                                                                   #
-    if len(data) > 5:                                                                          #
+    tempin = ser.readline()
+    if len(tempin) > 6:                                                                     #
+        sev = []
+        sev.append(tempin)
+        for item in range(4):
+            tempin = ser.readline()
+            if len(tempin) > 1:
+                sev.append(tempin.strip('\r\n'))
+            else:
+                master.after(10, read_serial)
+        data = max(sev)
         absolutes = data.split(',')                                                         #
         print absolutes                                                                     #
-        XSHOW.delete(0.0,END)                                                               #
-        XSHOW.insert(END,absolutes[0])                                                      #
-        YSHOW.delete(0.0,END)                                                               #
-        YSHOW.insert(END,absolutes[1])                                                      #
-        ZSHOW.delete(0.0,END)                                                               #
-        ZSHOW.insert(END,absolutes[2])                                                      #
-        if absolutes[3] == 'c':                                                             #
+        if '' in absolutes:
             master.after(10, read_serial)                                                   #
-        if absolutes[3] == 's':                                                             #
-            return None                                                                     #
+        else:
+            tempx = float(absolutes[0])
+            tempy = float(absolutes[1])
+            tempz = float(absolutes[2])
+            finx = round(tempx/5120,4)
+            finy = round(tempy/5120,4)
+            finz = round(tempz/208000,4)
+            XSHOW.delete(0.0,END)                                                               #
+            XSHOW.insert(END,str(finx))                                                      #
+            YSHOW.delete(0.0,END)                                                               #
+            YSHOW.insert(END,str(finy))                                                      #
+            ZSHOW.delete(0.0,END)                                                               #
+            ZSHOW.insert(END,str(finz))                                                      #
+            if absolutes[3] == 'c':                                                             #
+                master.after(10, read_serial)                                                   #
+            if absolutes[3] == 's':                                                             #
+                return None                                                                     #
     else:                                                                                   #
-        master.after(10, read_serial)
-        print 'after'        #
+        master.after(10, read_serial)                                                       #
     
 def zero(coords):                                                                           #
     Z = 'Z'                                                                                 #
@@ -178,12 +195,17 @@ G_SEND.grid(column=2,row=4)                                                     
 RAS = LabelFrame(master, text='Raster Controls', bg=panebg)                                 #
 RAS.grid(row=5, column=0, rowspan=2, columnspan=2, sticky='WENS')                           #
 
-def raster_send():                                                                          #
-    wout = 'w:'+w.get()                                                                     #
-    hout = 'h:'+h.get()                                                                     #
-    dout = 'd:'+d.get()                                                                     #
-    zspan = 't:'+t.get()                                                                    #
-    zstep = 's:'+t.get()                                                                    #
+def raster_send():
+    tempw = float(w.get())*5120                                                                         #
+    wout = 'w:'+ str(tempw)
+    temph = float(h.get())*5120                                                                    #
+    hout = 'h:'+ str(temph)                                                                     #
+    tempd = float(d.get())*5120
+    dout = 'd:'+ str(tempd)
+    tempzspan = float(t.get())*208000                                                                     #
+    zspan = 't:'+ str(tempzspan)
+    tempzstep = float(s.get())*208000                                                                    #
+    zstep = 's:'+ str(tempzstep)                                                                    #
     ser.write('R,'+wout+','+hout+','+dout+','+zspan+','+zstep)                              #
     read_serial()                                                                           #
 
@@ -228,22 +250,25 @@ def manual(event):                                                              
     man = str(event.widget).split('.')[-1]                                                  #
     rt = rate.get()                                                                         #
     ser.write('M,'+man+',@'+rates[rt])                                                      #
+    read_serial()
 
 def end_manual(event):                                                                      #
-    ser.write('S')                                                                          #
-    read_serial()                                                                           #
+    ser.write('S')                                                                          #                                                                           #
 
 def key(event):                                                                             #
     if keyboard.get() == 1:                                                                 #
         global key_flag                                                                     #
         if key_flag == False:                                                               #
+            print 'start'
             sym = event.keysym                                                              #
+	    print sym
             key_dict[sym].event_generate('<Button-1>')                                      #
             key_dict[sym].event_generate('<Enter>')                                         #
             key_flag = True                                                                 #
         
 def end_key(event):                                                                         #
     if keyboard.get() == 1:                                                                 #
+        time.sleep(.01)
         global key_flag                                                                     #
         sym = event.keysym                                                                  #
         key_dict[sym].event_generate('<ButtonRelease-1>')                                   #
@@ -321,21 +346,22 @@ UP = Button(CON, font=('Times',20,'bold'), fg='firebrick2',                     
 UP.grid(row=3, column=3, padx=10, pady=5)                                                   #
 UP.bind('<Button-1>', manual)                                                               #
 UP.bind('<ButtonRelease-1>', end_manual)                                                    #
-master.bind('<Prior>', key)                                                                 #
-master.bind('<KeyRelease-Prior>', end_key)                                                  #
+master.bind('<]>', key)                                                                 #
+master.bind('<KeyRelease-]>', end_key)                                                  #
 
 DOWN = Button(CON, font=('Times',20,'bold'), fg='firebrick2',                               #
               bg='dim grey', activebackground='grey', name='-z', text=u'\u2193')            #
 DOWN.grid(row=5, column=3, padx=10, pady=5)                                                 #
 DOWN.bind('<Button-1>', manual)                                                             #
 DOWN.bind('<ButtonRelease-1>', end_manual)                                                  #
-master.bind('<Next>', key)                                                                  #
-master.bind('<KeyRelease-Next>', end_key)                                                   #
+master.bind('<[>', key)                                                                  #
+master.bind('<KeyRelease-[>', end_key)                                                   #
 
-shutter = ImageTk.PhotoImage(file='C:\\Users\\Tyler\\Desktop\\cam.ico')                     #
+CWD = os.getcwd()                                                                           #
+shutter = ImageTk.PhotoImage(file=CWD+'\\cam.ico')                                          #
 CAM = Button(CON, width=70, height=128, image=shutter, bg='purple', command=camera)         #
 CAM.grid(row=3, column=5, rowspan=3, padx=5, sticky='W')                                    #
 
-key_dict={'Left':WEST,'Right':EAST,'Down':SOUTH,'Up':NORTH,'Prior':UP,'Next':DOWN}          #
+key_dict={'Left':WEST,'Right':EAST,'Down':SOUTH,'Up':NORTH,'bracketright':UP,'bracketleft':DOWN}          #
 
 master.mainloop()                                                                           #
